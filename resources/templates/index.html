@@ -2,9 +2,1036 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>Title</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Hermes Control Center - Spacecraft Telemetry</title>
+    <script src="/static/chart.js"></script>
+    <script src="/static/tree.js"></script>
+    <link rel="stylesheet" href="/static/all.css">
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(to bottom, #111827, #1e293b, #334155);
+            color: #e2e8f0;
+            min-height: 100vh;
+            padding: 1rem;
+            overflow-x: hidden;
+        }
+
+        .dashboard-header {
+            text-align: center;
+            margin-bottom: 1.5rem;
+            padding-bottom: 1rem;
+            border-bottom: 1px solid rgba(148, 163, 184, 0.2);
+        }
+
+        .dashboard-header h1 {
+            font-size: 2.2rem;
+            margin: 0;
+            background: linear-gradient(to right, #93c5fd, #60a5fa);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            font-weight: 700;
+            letter-spacing: 1px;
+        }
+
+        .dashboard-header p {
+            margin-top: 0.5rem;
+            color: #cbd5e1;
+            font-size: 1.1rem;
+        }
+
+        .root-div {
+            display: flex;
+            flex-direction: row;
+            gap: 1.5rem;
+            width: 100%;
+            height: 100%;
+            max-height: calc(100vh - 7rem);
+        }
+
+        .box-div, .box-div-five {
+            display: flex;
+            flex-direction: column;
+            width: 33.3333%;
+            padding: 0.75rem;
+            gap: 1rem;
+            overflow: hidden;
+        }
+
+        .box-div > div,
+        .box-div-five > div {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            background-color: rgba(30, 41, 59, 0.7);
+            border-radius: 0.75rem;
+            box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.5);
+            padding: 1rem;
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+            min-height: 200px;
+            overflow: hidden;
+        }
+
+        .box-div > div:hover,
+        .box-div-five > div:hover {
+            transform: translateY(-5px);
+            box-shadow: 0 15px 30px -10px rgba(0, 0, 0, 0.4);
+        }
+
+        .chart-container {
+            position: relative;
+            width: 100%;
+            height: 100%;
+            padding: 10px;
+        }
+
+        h3 {
+            margin: 0 0 15px 0;
+            font-size: 1.2rem;
+            font-weight: 600;
+            color: #93c5fd;
+            text-align: center;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        .telemetry-value {
+            font-size: 1.8rem;
+            font-weight: bold;
+            font-family: monospace;
+            margin: 5px 0;
+            color: #60a5fa;
+        }
+
+        .telemetry-label {
+            font-size: 0.9rem;
+            color: #cbd5e1;
+            text-transform: uppercase;
+        }
+
+        /* Scrollable columns */
+        .scrollable-column {
+            overflow-y: auto;
+            scrollbar-width: thin;
+            scrollbar-color: #4b5563 #1e293b;
+            padding-right: 8px;
+        }
+
+        .scrollable-column::-webkit-scrollbar {
+            width: 8px;
+        }
+
+        .scrollable-column::-webkit-scrollbar-track {
+            background: #1e293b;
+            border-radius: 4px;
+        }
+
+        .scrollable-column::-webkit-scrollbar-thumb {
+            background-color: #4b5563;
+            border-radius: 4px;
+        }
+
+        .scrollable-column::-webkit-scrollbar-thumb:hover {
+            background-color: #64748b;
+        }
+
+        /* Orientation panel styles */
+        .orientation-panel {
+            display: flex;
+            flex-direction: column;
+            width: 100%;
+            height: 100%;
+            padding: 15px;
+        }
+
+        .orientation-display {
+            flex: 1;
+            position: relative;
+            width: 100%;
+            overflow: hidden;
+        }
+
+        #rocketCanvas {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: transparent;
+        }
+
+        .orientation-controls {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 15px;
+            margin-top: 20px;
+            padding: 15px;
+            background: rgba(15, 23, 42, 0.5);
+            border-radius: 8px;
+        }
+
+        .axis-control {
+            flex: 1;
+            min-width: 120px;
+        }
+
+        .axis-control label {
+            display: block;
+            margin-bottom: 8px;
+            font-size: 14px;
+            color: #93c5fd;
+        }
+
+        .axis-control input {
+            width: 100%;
+            height: 8px;
+            border-radius: 4px;
+            background: #334155;
+            outline: none;
+            -webkit-appearance: none;
+        }
+
+        .axis-control input::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            background: #60a5fa;
+            cursor: pointer;
+            box-shadow: 0 0 5px rgba(96, 165, 250, 0.5);
+        }
+
+        .axis-value {
+            text-align: center;
+            font-size: 14px;
+            margin-top: 8px;
+            background: rgba(30, 41, 59, 0.5);
+            padding: 5px;
+            border-radius: 4px;
+            font-family: monospace;
+        }
+
+        .axis-indicators {
+            display: flex;
+            justify-content: space-around;
+            margin-top: 15px;
+            padding: 10px;
+            background: rgba(15, 23, 42, 0.5);
+            border-radius: 8px;
+        }
+
+        .axis-indicator {
+            text-align: center;
+        }
+
+        .axis-indicator .label {
+            font-size: 14px;
+            color: #93c5fd;
+            margin-bottom: 5px;
+        }
+
+        .axis-indicator .value {
+            font-size: 18px;
+            font-weight: bold;
+            font-family: monospace;
+            background: rgba(30, 41, 59, 0.7);
+            padding: 5px 10px;
+            border-radius: 4px;
+            min-width: 80px;
+            display: inline-block;
+        }
+
+        .axis-x .value {
+            color: #ef4444;
+        }
+
+        .axis-y .value {
+            color: #22c55e;
+        }
+
+        .axis-z .value {
+            color: #3b82f6;
+        }
+
+        /* Rocket Commands Panel */
+        .command-panel {
+            width: 100%;
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+        }
+
+        .panel-header {
+            display: flex;
+            align-items: center;
+            margin-bottom: 15px;
+            padding-bottom: 10px;
+            border-bottom: 1px solid rgba(148, 163, 184, 0.2);
+        }
+
+        .panel-header i {
+            font-size: 24px;
+            color: #60a5fa;
+            margin-right: 12px;
+        }
+
+        .panel-header h3 {
+            font-size: 1.3rem;
+            color: #f8fafc;
+            font-weight: 600;
+            letter-spacing: 1px;
+            margin: 0;
+        }
+
+        .button-container {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            flex: 1;
+            position: relative;
+            min-height: 200px;
+        }
+
+        .abort-button {
+            position: relative;
+            width: 160px;
+            height: 160px;
+            border-radius: 50%;
+            background: linear-gradient(145deg, #ef4444, #b91c1c);
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            color: white;
+            font-size: 18px;
+            font-weight: bold;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            cursor: pointer;
+            box-shadow: 0 0 0 8px rgba(239, 68, 68, 0.3),
+            0 0 0 16px rgba(239, 68, 68, 0.2),
+            0 0 20px rgba(239, 68, 68, 0.6),
+            inset 0 0 8px rgba(0, 0, 0, 0.3);
+            transition: all 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            overflow: hidden;
+            transform-origin: center;
+            z-index: 2;
+        }
+
+        .abort-button:hover {
+            transform: scale(1.05);
+            box-shadow: 0 0 0 12px rgba(239, 68, 68, 0.4),
+            0 0 0 24px rgba(239, 68, 68, 0.2),
+            0 0 40px rgba(239, 68, 68, 0.8),
+            inset 0 0 12px rgba(0, 0, 0, 0.4);
+        }
+
+        .abort-button .icon {
+            font-size: 50px;
+            margin-bottom: 8px;
+            transition: all 0.5s ease;
+        }
+
+        .abort-button .text {
+            transition: all 0.5s ease;
+        }
+
+        /* Parachute styling */
+        .parachute {
+            position: absolute;
+            top: -70px;
+            width: 160px;
+            height: 80px;
+            background: linear-gradient(to bottom, #e9c46a, #f4a261);
+            border-radius: 50% 50% 0 0;
+            clip-path: polygon(0% 100%, 25% 0%, 75% 0%, 100% 100%);
+            opacity: 0;
+            transform: scale(0.5);
+            transition: all 0.8s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            z-index: 1;
+        }
+
+        /* Lines connecting parachute to button */
+        .lines {
+            position: absolute;
+            top: -60px;
+            left: 50%;
+            transform: translateX(-50%);
+            height: 0;
+            width: 2px;
+            background: rgba(255, 255, 255, 0.7);
+            opacity: 0;
+            transition: all 0.5s ease 0.3s;
+        }
+
+        /* Active state when button is pressed */
+        .abort-button.active {
+            background: linear-gradient(145deg, #10b981, #047857);
+            transform: scale(0.9);
+            box-shadow: 0 0 0 12px rgba(16, 185, 129, 0.4),
+            0 0 0 24px rgba(16, 185, 129, 0.2),
+            0 0 40px rgba(16, 185, 129, 0.6),
+            inset 0 0 12px rgba(0, 0, 0, 0.4);
+        }
+
+        .abort-button.active .icon {
+            transform: translateY(-25px);
+            font-size: 70px;
+            color: #e9c46a;
+        }
+
+        .abort-button.active .text {
+            transform: translateY(35px);
+            opacity: 0;
+        }
+
+        .abort-button.active ~ .parachute {
+            opacity: 1;
+            transform: scale(1);
+        }
+
+        .abort-button.active ~ .lines {
+            height: 150px;
+            opacity: 1;
+        }
+
+        .status {
+            text-align: center;
+            margin-top: 15px;
+            font-size: 16px;
+            color: #f8fafc;
+            height: 30px;
+            transition: all 0.5s ease;
+        }
+
+        .status.active {
+            color: #10b981;
+            text-shadow: 0 0 10px rgba(16, 185, 129, 0.7);
+        }
+
+        .warning {
+            margin-top: 15px;
+            padding: 12px;
+            background: rgba(239, 68, 68, 0.1);
+            border-radius: 8px;
+            border-left: 3px solid #ef4444;
+            color: #f8fafc;
+            font-size: 13px;
+        }
+
+        .warning i {
+            margin-right: 8px;
+            color: #ef4444;
+        }
+
+        @keyframes pulse {
+            0% {
+                transform: scale(1);
+                opacity: 0.8;
+            }
+            100% {
+                transform: scale(1.8);
+                opacity: 0;
+            }
+        }
+
+        /* System diagnostics panel */
+        .diagnostics-panel {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 15px;
+            padding: 15px;
+        }
+
+        .diagnostic-item {
+            text-align: center;
+            padding: 10px;
+            background: rgba(15, 23, 42, 0.5);
+            border-radius: 8px;
+        }
+
+        /* Responsive adjustments */
+        @media (max-width: 1200px) {
+            .root-div {
+                flex-direction: column;
+                max-height: none;
+            }
+
+            .box-div, .box-div-five {
+                width: 100%;
+                max-height: 70vh;
+            }
+        }
+
+        @media (max-width: 768px) {
+            .dashboard-header h1 {
+                font-size: 1.8rem;
+            }
+
+            .box-div-five {
+                gap: 0.8rem;
+            }
+
+            .abort-button {
+                width: 140px;
+                height: 140px;
+            }
+
+            .abort-button .icon {
+                font-size: 40px;
+            }
+
+            .parachute {
+                width: 140px;
+                height: 70px;
+                top: -60px;
+            }
+
+            .abort-button.active .icon {
+                font-size: 60px;
+            }
+
+            .diagnostics-panel {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
 </head>
 <body>
+<div class="dashboard-header">
+    <h1><i class="fas fa-rocket"></i> HERMES CONTROL CENTER</h1>
+    <p>Spacecraft Telemetry & Control System</p>
+</div>
 
+<div class="root-div">
+    <!-- Left Column - Telemetry Panels -->
+    <div class="box-div-five scrollable-column">
+        <div class="chart-container">
+            <h3><i class="fas fa-gauge-high"></i> G-Force</h3>
+            <canvas id="gforceChart"></canvas>
+        </div>
+        <div class="chart-container">
+            <h3><i class="fas fa-weight-hanging"></i> Pressure</h3>
+            <canvas id="pressureChart"></canvas>
+        </div>
+        <div class="chart-container">
+            <h3><i class="fas fa-mountain"></i> Altitude</h3>
+            <canvas id="altitudeChart"></canvas>
+        </div>
+        <div class="chart-container">
+            <h3><i class="fas fa-temperature-high"></i> Temperature</h3>
+            <canvas id="temperatureChart"></canvas>
+        </div>
+        <div class="chart-container">
+            <h3><i class="fas fa-tachometer-alt"></i> Vertical Speed</h3>
+            <canvas id="vspeedChart"></canvas>
+        </div>
+    </div>
+
+    <!-- Center Column - Orientation Panel -->
+    <div class="box-div scrollable-column">
+        <div class="orientation-panel">
+            <h3><i class="fas fa-satellite"></i> Spacecraft Orientation</h3>
+            <div class="orientation-display">
+                <canvas id="rocketCanvas"></canvas>
+            </div>
+
+            <div class="axis-indicators">
+                <div class="axis-indicator axis-x">
+                    <div class="label">X-AXIS (Roll)</div>
+                    <div class="value" id="roll-value">0.00°</div>
+                </div>
+                <div class="axis-indicator axis-y">
+                    <div class="label">Y-AXIS (Pitch)</div>
+                    <div class="value" id="pitch-value">0.00°</div>
+                </div>
+                <div class="axis-indicator axis-z">
+                    <div class="label">Z-AXIS (Yaw)</div>
+                    <div class="value" id="yaw-value">0.00°</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="chart-container">
+            <h3><i class="fas fa-microchip"></i> System Diagnostics</h3>
+            <div class="diagnostics-panel">
+                <div class="diagnostic-item">
+                    <div class="telemetry-value" id="gforce-value">0.00</div>
+                    <div class="telemetry-label">G-Force</div>
+                </div>
+                <div class="diagnostic-item">
+                    <div class="telemetry-value" id="altitude-value">0 m</div>
+                    <div class="telemetry-label">Altitude</div>
+                </div>
+                <div class="diagnostic-item">
+                    <div class="telemetry-value" id="vspeed-value">0 m/s</div>
+                    <div class="telemetry-label">Vertical Speed</div>
+                </div>
+                <div class="diagnostic-item">
+                    <div class="telemetry-value" id="pressure-value">0 kPa</div>
+                    <div class="telemetry-label">Pressure</div>
+                </div>
+                <div class="diagnostic-item">
+                    <div class="telemetry-value" id="temperature-value">0 °C</div>
+                    <div class="telemetry-label">Temperature</div>
+                </div>
+                <div class="diagnostic-item">
+                    <div class="telemetry-value" id="battery-value">100%</div>
+                    <div class="telemetry-label">Battery</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Right Column - Commands & Communications -->
+    <div class="box-div scrollable-column">
+        <div class="chart-container">
+            <div class="command-panel">
+                <div class="panel-header">
+                    <i class="fas fa-rocket"></i>
+                    <h3>Rocket Commands</h3>
+                </div>
+
+                <div class="button-container">
+                    <div class="abort-button" id="abortButton">
+                        <div class="icon"><i class="fas fa-exclamation-triangle"></i></div>
+                        <div class="text">Abort</div>
+                    </div>
+                    <div class="parachute"></div>
+                    <div class="lines"></div>
+                </div>
+
+                <div class="status" id="status">System Status: Nominal</div>
+
+                <div class="warning">
+                    <i class="fas fa-exclamation-circle"></i>
+                    The ABORT command initiates emergency separation and activates the recovery parachute system.
+                </div>
+            </div>
+        </div>
+
+        <div class="chart-container">
+            <h3><i class="fas fa-wifi"></i> Communications</h3>
+            <canvas id="commsChart"></canvas>
+        </div>
+
+        <div class="chart-container">
+            <h3><i class="fas fa-broadcast-tower"></i> Signal Strength</h3>
+            <div class="telemetry-value" id="signal-value">100%</div>
+            <div class="telemetry-label">Current Signal Quality</div>
+        </div>
+    </div>
+</div>
+
+<script>
+    // WebSocket connection for telemetry data
+    let socket;
+    let telemetryData = {
+        "G-force": 0,
+        "Altitude": 0,
+        "Vertical Speed": 0,
+        "Pressure": 0,
+        "gyro": {"x": 0, "y": 0, "z": 0},
+        "temperature": 0
+    };
+
+    // Initialize WebSocket connection
+    function initWebSocket() {
+        const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+        const host = window.location.host;
+        socket = new WebSocket(`${protocol}//${host}/ws/telemetry`);
+
+        socket.onopen = () => {
+            console.log("WebSocket connection established");
+            document.getElementById('status').textContent = "System Status: Connected";
+        };
+
+        socket.onmessage = (event) => {
+            try {
+                const data = JSON.parse(event.data);
+                telemetryData = data;
+                updateTelemetryDisplays();
+                updateRocketOrientation();
+                updateCharts();
+            } catch (e) {
+                console.error("Error parsing telemetry data:", e);
+            }
+        };
+
+        socket.onerror = (error) => {
+            console.error("WebSocket error:", error);
+            document.getElementById('status').textContent = "System Status: Connection Error";
+        };
+
+        socket.onclose = () => {
+            console.log("WebSocket connection closed");
+            document.getElementById('status').textContent = "System Status: Disconnected";
+            // Try to reconnect after 3 seconds
+            setTimeout(initWebSocket, 3000);
+        };
+    }
+
+    // Update telemetry displays
+    function updateTelemetryDisplays() {
+        document.getElementById('gforce-value').textContent = telemetryData["G-force"].toFixed(2);
+        document.getElementById('altitude-value').textContent = `${telemetryData.Altitude.toFixed(0)} m`;
+        document.getElementById('vspeed-value').textContent = `${telemetryData["Vertical Speed"].toFixed(1)} m/s`;
+        document.getElementById('pressure-value').textContent = `${telemetryData.Pressure.toFixed(1)} kPa`;
+        document.getElementById('temperature-value').textContent = `${telemetryData.temperature.toFixed(1)} °C`;
+
+        // Update gyro displays
+        document.getElementById('roll-value').textContent = `${telemetryData.gyro.x.toFixed(2)}°`;
+        document.getElementById('pitch-value').textContent = `${telemetryData.gyro.y.toFixed(2)}°`;
+        document.getElementById('yaw-value').textContent = `${telemetryData.gyro.z.toFixed(2)}°`;
+    }
+
+    // Chart instances
+    let gforceChart, pressureChart, altitudeChart, temperatureChart, vspeedChart, commsChart;
+    const maxDataPoints = 30;
+
+    // Initialize charts
+    function initCharts() {
+        const chartOptions = {
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: {display: false},
+                tooltip: {
+                    backgroundColor: 'rgba(30, 41, 59, 0.9)',
+                    titleColor: '#93c5fd',
+                    bodyColor: '#e2e8f0',
+                    borderColor: '#4b5563',
+                    borderWidth: 1,
+                    padding: 12,
+                    cornerRadius: 6
+                }
+            },
+            scales: {
+                x: {
+                    grid: {color: 'rgba(148, 163, 184, 0.1)'},
+                    ticks: {color: '#94a3b8'}
+                },
+                y: {
+                    grid: {color: 'rgba(148, 163, 184, 0.1)'},
+                    ticks: {color: '#94a3b8'}
+                }
+            }
+        };
+
+        // G-Force Chart
+        gforceChart = new Chart(
+            document.getElementById('gforceChart'),
+            {
+                type: 'line',
+                data: {
+                    labels: Array(maxDataPoints).fill(''),
+                    datasets: [{
+                        label: 'G-Force',
+                        data: Array(maxDataPoints).fill(0),
+                        borderColor: 'rgb(86, 184, 255)',
+                        backgroundColor: 'rgba(86, 184, 255, 0.1)',
+                        fill: true,
+                        tension: 0.4,
+                        pointRadius: 0
+                    }]
+                },
+                options: chartOptions
+            }
+        );
+
+        // Pressure Chart
+        pressureChart = new Chart(
+            document.getElementById('pressureChart'),
+            {
+                type: 'line',
+                data: {
+                    labels: Array(maxDataPoints).fill(''),
+                    datasets: [{
+                        label: 'Pressure (kPa)',
+                        data: Array(maxDataPoints).fill(0),
+                        borderColor: 'rgb(255, 99, 132)',
+                        backgroundColor: 'rgba(255, 99, 132, 0.1)',
+                        fill: true,
+                        tension: 0.4,
+                        pointRadius: 0
+                    }]
+                },
+                options: chartOptions
+            }
+        );
+
+        // Altitude Chart
+        altitudeChart = new Chart(
+            document.getElementById('altitudeChart'),
+            {
+                type: 'line',
+                data: {
+                    labels: Array(maxDataPoints).fill(''),
+                    datasets: [{
+                        label: 'Altitude (m)',
+                        data: Array(maxDataPoints).fill(0),
+                        borderColor: 'rgb(46, 204, 113)',
+                        backgroundColor: 'rgba(46, 204, 113, 0.1)',
+                        fill: true,
+                        tension: 0.4,
+                        pointRadius: 0
+                    }]
+                },
+                options: chartOptions
+            }
+        );
+
+        // Temperature Chart
+        temperatureChart = new Chart(
+            document.getElementById('temperatureChart'),
+            {
+                type: 'line',
+                data: {
+                    labels: Array(maxDataPoints).fill(''),
+                    datasets: [{
+                        label: 'Temperature (°C)',
+                        data: Array(maxDataPoints).fill(0),
+                        borderColor: 'rgb(255, 159, 64)',
+                        backgroundColor: 'rgba(255, 159, 64, 0.1)',
+                        fill: true,
+                        tension: 0.4,
+                        pointRadius: 0
+                    }]
+                },
+                options: chartOptions
+            }
+        );
+
+        // Vertical Speed Chart
+        vspeedChart = new Chart(
+            document.getElementById('vspeedChart'),
+            {
+                type: 'line',
+                data: {
+                    labels: Array(maxDataPoints).fill(''),
+                    datasets: [{
+                        label: 'Vertical Speed (m/s)',
+                        data: Array(maxDataPoints).fill(0),
+                        borderColor: 'rgb(139, 92, 246)',
+                        backgroundColor: 'rgba(139, 92, 246, 0.1)',
+                        fill: true,
+                        tension: 0.4,
+                        pointRadius: 0
+                    }]
+                },
+                options: chartOptions
+            }
+        );
+
+        // Communications Chart
+        commsChart = new Chart(
+            document.getElementById('commsChart'),
+            {
+                type: 'line',
+                data: {
+                    labels: Array(maxDataPoints).fill(''),
+                    datasets: [{
+                        label: 'Signal Quality',
+                        data: Array(maxDataPoints).fill(0),
+                        borderColor: 'rgb(75, 192, 192)',
+                        backgroundColor: 'rgba(75, 192, 192, 0.1)',
+                        fill: true,
+                        tension: 0.4,
+                        pointRadius: 0
+                    }]
+                },
+                options: chartOptions
+            }
+        );
+    }
+
+    // Update charts with new data
+    function updateCharts() {
+        // Shift data arrays and add new values
+        function updateChart(chart, value) {
+            chart.data.datasets[0].data.shift();
+            chart.data.datasets[0].data.push(value);
+            chart.update();
+        }
+
+        updateChart(gforceChart, telemetryData["G-force"]);
+        updateChart(pressureChart, telemetryData.Pressure);
+        updateChart(altitudeChart, telemetryData.Altitude);
+        updateChart(temperatureChart, telemetryData.temperature);
+        updateChart(vspeedChart, telemetryData["Vertical Speed"]);
+
+        // Generate fake signal strength data
+        const signalStrength = 80 + Math.random() * 20;
+        updateChart(commsChart, signalStrength);
+        document.getElementById('signal-value').textContent = `${signalStrength.toFixed(1)}%`;
+
+        // Update battery level (simulated)
+        const batteryLevel = 90 + Math.random() * 10;
+        document.getElementById('battery-value').textContent = `${batteryLevel.toFixed(1)}%`;
+    }
+
+    // Rocket Visualization
+    let rocketGroup;
+
+    function initRocketScene() {
+        const rocketCanvas = document.getElementById('rocketCanvas');
+        if (!rocketCanvas) return;
+
+        // Scene setup
+        const scene = new THREE.Scene();
+        const camera = new THREE.PerspectiveCamera(75, rocketCanvas.clientWidth / rocketCanvas.clientHeight, 0.1, 1000);
+        const renderer = new THREE.WebGLRenderer({
+            canvas: rocketCanvas,
+            antialias: true,
+            alpha: true
+        });
+        renderer.setSize(rocketCanvas.clientWidth, rocketCanvas.clientHeight);
+        renderer.setClearColor(0x000000, 0);
+
+        // Lighting
+        const ambientLight = new THREE.AmbientLight(0xffffff, 0.6);
+        scene.add(ambientLight);
+
+        const directionalLight = new THREE.DirectionalLight(0xffffff, 0.8);
+        directionalLight.position.set(1, 1, 1);
+        scene.add(directionalLight);
+
+        // Create rocket group
+        rocketGroup = new THREE.Group();
+        scene.add(rocketGroup);
+
+        // Rocket body (cylinder)
+        const bodyGeometry = new THREE.CylinderGeometry(0.4, 0.4, 2, 32);
+        const bodyMaterial = new THREE.MeshPhongMaterial({color: 0x3b82f6});
+        const body = new THREE.Mesh(bodyGeometry, bodyMaterial);
+        rocketGroup.add(body);
+
+        // Nose cone
+        const noseGeometry = new THREE.ConeGeometry(0.5, 1, 32);
+        const noseMaterial = new THREE.MeshPhongMaterial({color: 0xef4444});
+        const nose = new THREE.Mesh(noseGeometry, noseMaterial);
+        nose.position.y = 1.5;
+        rocketGroup.add(nose);
+
+
+        // Windows
+        const windowGeometry = new THREE.SphereGeometry(0.15, 16, 16);
+        const windowMaterial = new THREE.MeshPhongMaterial({color: 0xfbbf24});
+
+        const window1 = new THREE.Mesh(windowGeometry, windowMaterial);
+        window1.position.set(0.4, 0.3, 0);
+        rocketGroup.add(window1);
+
+        const window2 = new THREE.Mesh(windowGeometry, windowMaterial);
+        window2.position.set(0.4, -0.2, 0);
+        rocketGroup.add(window2);
+
+        // Camera position
+        camera.position.z = 5;
+        camera.position.y = 1.5;
+
+        // Create reference axes
+        const axesHelper = new THREE.AxesHelper(3);
+        scene.add(axesHelper);
+
+        // Animation function
+        const animate = () => {
+            requestAnimationFrame(animate);
+            renderer.render(scene, camera);
+        };
+        animate();
+
+        // Handle window resize
+        const handleResize = () => {
+            camera.aspect = rocketCanvas.clientWidth / rocketCanvas.clientHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(rocketCanvas.clientWidth, rocketCanvas.clientHeight);
+        };
+        window.addEventListener('resize', handleResize);
+    }
+
+    // Update rocket orientation based on telemetry
+    function updateRocketOrientation() {
+        if (!rocketGroup) return;
+
+        // Scale gyro values for better visualization
+        const scaleFactor = 0.5;
+        const roll = telemetryData.gyro.x * scaleFactor;
+        const pitch = telemetryData.gyro.y * scaleFactor;
+        const yaw = telemetryData.gyro.z * scaleFactor;
+
+        rocketGroup.rotation.set(pitch, yaw, roll);
+    }
+
+    function initAbortButton() {
+    const abortButton = document.getElementById('abortButton');
+    const status = document.getElementById('status');
+
+    abortButton.addEventListener('click', function () {
+        if (!this.classList.contains('active')) {
+            this.classList.add('active');
+            status.textContent = "ABORT SEQUENCE INITIATED!";
+            status.classList.add('active');
+
+            // 🔊 Play the abort sound
+            const audio = new Audio('/static/kurwa-raketa.mp3');
+            audio.play().catch(err => console.error("Audio play failed:", err));
+
+            // 🔁 Send CMD_DEPLOY to backend
+            fetch('/api/deploy')
+                .then(res => res.json())
+                .then(data => {
+                    console.log("Deploy command sent:", data);
+                })
+                .catch(err => {
+                    console.error("Failed to send deploy command:", err);
+                });
+
+            // 🎯 Change icon to parachute
+            const icon = this.querySelector('.icon i');
+            icon.classList.remove('fa-exclamation-triangle');
+            icon.classList.add('fa-parachute-box');
+
+            // 🌟 Visual effects
+            const particles = document.createElement('div');
+            particles.style.position = 'absolute';
+            particles.style.top = '0';
+            particles.style.left = '0';
+            particles.style.width = '100%';
+            particles.style.height = '100%';
+            particles.style.borderRadius = '50%';
+            particles.style.background = 'radial-gradient(circle, rgba(233,196,106,0.3) 0%, transparent 70%)';
+            particles.style.animation = 'pulse 2s ease-out';
+            particles.style.zIndex = '3';
+            this.appendChild(particles);
+
+            setTimeout(() => {
+                particles.remove();
+            }, 2000);
+
+            // ✅ Final status update
+            setTimeout(() => {
+                status.textContent = "RECOVERY PARACHUTE DEPLOYED!";
+            }, 1500);
+        }
+    });
+}
+
+    // Initialize everything when DOM is loaded
+    document.addEventListener("DOMContentLoaded", () => {
+        initCharts();
+        initRocketScene();
+        initAbortButton();
+        initWebSocket();
+    });
+</script>
 </body>
 </html>
